@@ -59,7 +59,7 @@ dr = float(Lr) / float(Nr + 1)
 # offset, moves coordinate axis from (0, Lr) to (-Lr, Lr)
 L0 = -float(Lr) / 2.
 
-# we are going to fill three matrices, POT and KIN, each initialized to 0
+# we are going to fill matrices, POT and KIN, each initialized to 0
 with benchmark('matrix initialization'):
     POT = np.zeros((dv, dv))
     KIN = np.zeros((dv, dv))
@@ -68,14 +68,15 @@ print('shape(POT) = {}, shape(KIN) = {}'.format(np.shape(POT), np.shape(KIN)))
 
 grid       = list(product(np.arange(1, Nr),repeat=dimc*nbr))
 
-with benchmark("main calculation"):
+#
+with benchmark("main calculation (ECCE: parallalize this)"):
     s = 0
     for a in grid:
         r = 0
         for b in grid:
             POT[r, s] = 0.0
             if np.array_equal(a, b):
-                POT[r,s] = 0.5*K*((a[0]*dr+L0)**2+(a[1]*dr+L0)**2+(a[2]*dr+L0)**2)
+                POT[r,s] = 0.5*K*sum([(a[n]*dr+L0)**2 for n in range(dimc)])
             for i in range(dimc*nbr):
                 if ((a[i]==b[i])&(a[(i+1)%dimc]==b[(i+1)%dimc])&(a[(i+2)%dimc]==b[(i+2)%dimc])):
                     KIN[r,s] += np.pi**2/(2.*Lr**2)*( ((2.*Nr**2+1)/3.)-np.sin(np.pi*a[i]/float(Nr))**(-2))
@@ -87,16 +88,15 @@ with benchmark("main calculation"):
 with benchmark("Diagonalization"):
         KIN *= hbarc**2 / (2 * mn)
         HAM = (KIN + POT)
-        nzero = 0
-        for a in HAM.flatten():
-            if abs(a)>_EPS:
-                nzero += 1
-        print 'Hamilton matrix: %d/%d non-zero entries'%(nzero,dv**2)
         EV = np.sort(np.linalg.eigvals(HAM))
 
+nzero = 0
+for a in HAM.flatten():
+    if abs(a)>_EPS:
+        nzero += 1
+print 'Hamilton matrix: %d/%d non-zero entries'%(nzero,dv**2)
 print 'DVR:'
 print np.real(EV)[:6]
-print np.real(np.diff(EV)[:6])
 #
 Eana = np.sort(
     np.array([[[(nx + ny + nz + 1.5) * hbarc * np.sqrt(K / mn)
@@ -104,5 +104,4 @@ Eana = np.sort(
               for nz in range(20)]).flatten())
 print 'ANA:'
 print Eana[:6]
-print np.diff(Eana)[:6]
 print '%d/%d non-zero entries in KIN'%(nzero,dv**2)

@@ -19,7 +19,7 @@ np.set_printoptions(linewidth=300,suppress=True)
 hbarc   = 197.327
 mn      = 938.
 # spherically symmetric oszillator strength
-K       = 12.
+K       = 10.
 #
 # lattice set-up
 #-----------------------------
@@ -27,13 +27,11 @@ K       = 12.
 dvrbasis = 'SINE'
 #
 dim = 3
-Lr = 7
-Nr = 7
+Lr = 4
+Nr = 4
 # for all box bases with f(a)=f(b)=0:
 # endpoints are not elements of the grid!
 dv = (Nr-1)**3
-print dv**2
-exit()
 #
 dr = float(Lr)/float(Nr+1)
 L0 = -float(Lr)/2.
@@ -45,15 +43,15 @@ xx,yy,zz = np.meshgrid(np.arange(1,Nr),np.arange(1,Nr),np.arange(1,Nr))
 #
 s = 0
 tic = time.time()
-for ix in range(xx.shape[0]):
-	for iy in range(yy.shape[0]):
-		for iz in range(zz.shape[0]):
+for ix in xrange(xx.shape[0]):
+	for iy in xrange(yy.shape[0]):
+		for iz in xrange(zz.shape[0]):
 			#print '(%+d,%+d,%+d) --'%(ix,iy,iz),
 			a = np.array([ix,iy,iz]) ; a+=1
 			r = 0
-			for ipx in range(xx.shape[0]):
-				for ipy in range(yy.shape[0]):
-					for ipz in range(zz.shape[0]):
+			for ipx in xrange(xx.shape[0]):
+				for ipy in xrange(yy.shape[0]):
+					for ipz in xrange(zz.shape[0]):
 						#print '(%+d,%+d,%+d)'%(ipx,ipy,ipz)
 						b = np.array([ipx,ipy,ipz]) ; b+=1
 						POT[r,s] = 0.0
