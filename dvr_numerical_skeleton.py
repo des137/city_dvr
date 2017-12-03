@@ -1,5 +1,11 @@
 from contextlib import contextmanager
+from itertools import product
 import time
+import numpy as np
+import numpy.linalg
+
+np.set_printoptions(linewidth=300, suppress=True)
+
 
 @contextmanager
 def benchmark(name):
@@ -7,101 +13,100 @@ def benchmark(name):
     yield
     end = time.time()
 
-    print('{} took {:.2f} ms'.format(name, (end-start)*1000.0))
+    print('{} took {:.2f} ms'.format(name, (end - start) * 1000.0))
 
-
-# 1D harmonic-oszillator benchmark for the DVR
-# comments:
-# (i)  converged(!) results for the SINE DVR are offset
-# but the splitting between energy EVs is correct
-# (ii) the choice of parameters has significant effect
-# on the grid sisze which is necessary for convergence
-import numpy as np
-import numpy.linalg
-from itertools import product
-
-_EPS = np.finfo(float).eps
-
-np.set_printoptions(linewidth=300, suppress=True)
 
 # parameters defining the physical system
-# ----------------------------------------
+_EPS = np.finfo(float).eps
 hbarc = 197.327
+# nucleon mass
 mn = 938.
 # spherically symmetric oszillator strength
 K = 12.
-#
+
 # lattice set-up
-# -----------------------------
-# implemented DVR bases: ['SINE','SINEap']
-dvrbasis = 'SINE'
+# partnbr: number of particles
+partnbr = 1
+# spacedims: spatial coordinate dimensions (e.g. cartesian x,y,z)
+spacedims = 3
+# length of a coordinate axis/box
+Ltot = 7.
+# left (L0) and right (LN1) boundary of a coordinate axis;
+# these endpoints are not elements of the grid;
+L0 = -Ltot / 2.
+LN1 = Ltot / 2.
+# number of grid points on axis
+N = 7
+# grid spacing
+dr = float(Ltot) / float(N + 1)
 
-# nbr: number of particles
-nbr  = 1
-
-# dimc: spatial coordinate dimensions (e.g. cartesian x,y,z)
-dimc = 3
-
-# Lr: length of each coordinate axis ("box size")
-Lr = 7
-
-# Nr: number of grid points on axis
-Nr = 7
-
-# for all box bases with f(a)=f(b)=0:
-# endpoints are not elements of the grid!
-dv = (Nr - 1)**3
+# dimension of the Hilbert space
+dv = (N - 1)**(spacedims * partnbr)
+# print dimension of Hamilton matrix
 print('dv^2: {0}'.format(dv**2))
 
-# grid spacing
-dr = float(Lr) / float(Nr + 1)
-
-# offset, moves coordinate axis from (0, Lr) to (-Lr, Lr)
-L0 = -float(Lr) / 2.
-
-# we are going to fill matrices, POT and KIN, each initialized to 0
+# initialization of the two components of the Hamiltonian:
+# H = mkinetic + mpotential
 with benchmark('matrix initialization'):
-    POT = np.zeros((dv, dv))
-    KIN = np.zeros((dv, dv))
+    mpotential = np.zeros((dv, dv))
+    mkinetic = np.zeros((dv, dv))
+    print('shape(mpotential) = {}'.format(np.shape(mpotential)))
+    print('shape(mkinetic) = {}'.format(np.shape(mkinetic)))
 
-print('shape(POT) = {}, shape(KIN) = {}'.format(np.shape(POT), np.shape(KIN)))
 
-grid       = list(product(np.arange(1, Nr),repeat=dimc*nbr))
+def fill_mkinetic(row=[], col=[]):
+    return
+
+
+grid = list(product(np.arange(1, N), repeat=spacedims * partnbr))
 
 #
 with benchmark("main calculation (ECCE: parallalize this)"):
-    s = 0
+    # column index
+    colidx = 0
     for a in grid:
-        r = 0
+        # row index
+        rowidx = 0
         for b in grid:
-            POT[r, s] = 0.0
+            mpotential[rowidx, colidx] = 0.0
             if np.array_equal(a, b):
-                POT[r,s] = 0.5*K*sum([(a[n]*dr+L0)**2 for n in range(dimc)])
-            for i in range(dimc*nbr):
-                if ((a[i]==b[i])&(a[(i+1)%dimc]==b[(i+1)%dimc])&(a[(i+2)%dimc]==b[(i+2)%dimc])):
-                    KIN[r,s] += np.pi**2/(2.*Lr**2)*( ((2.*Nr**2+1)/3.)-np.sin(np.pi*a[i]/float(Nr))**(-2))
-                if ((a[i]<>b[i])&(a[(i+1)%dimc]==b[(i+1)%dimc])&(a[(i+2)%dimc]==b[(i+2)%dimc])):
-                    KIN[r,s] += (-1)**(a[i]-b[i])*np.pi**2/(2.*Lr**2)*(np.sin(np.pi*(a[i]-b[i])/(2.*Nr))**(-2)-np.sin(np.pi*(a[i]+b[i])/(2.*Nr))**(-2))
-            r += 1
-        s += 1
+                mpotential[rowidx, colidx] = 0.5 * K * sum([(
+                    a[n] * dr + L0)**2 for n in range(spacedims)])
+            for i in range(spacedims * partnbr):
+                if ((a[i] == b[i]) &
+                    (a[(i + 1) % spacedims] == b[(i + 1) % spacedims]) &
+                    (a[(i + 2) % spacedims] == b[(i + 2) % spacedims])):
+                    mkinetic[rowidx, colidx] += np.pi**2 / (
+                        2. * Ltot**2) * (((2. * N**2 + 1) / 3.) -
+                                         np.sin(np.pi * a[i] / float(N))**(-2))
+                if ((a[i] != b[i]) &
+                    (a[(i + 1) % spacedims] == b[(i + 1) % spacedims]) &
+                    (a[(i + 2) % spacedims] == b[(i + 2) % spacedims])):
+                    mkinetic[rowidx, colidx] += (-1)**(
+                        a[i] - b[i]) * np.pi**2 / (2. * Ltot**2) * (
+                            np.sin(np.pi * (a[i] - b[i]) / (2. * N))**
+                            (-2) - np.sin(np.pi * (a[i] + b[i]) /
+                                          (2. * N))**(-2))
+            rowidx += 1
+        colidx += 1
 
 with benchmark("Diagonalization"):
-        KIN *= hbarc**2 / (2 * mn)
-        HAM = (KIN + POT)
-        EV = np.sort(np.linalg.eigvals(HAM))
+    mkinetic *= hbarc**2 / (2 * mn)
+    HAM = (mkinetic + mpotential)
+    EV = np.sort(np.linalg.eigvals(HAM))
 
 nzero = 0
 for a in HAM.flatten():
-    if abs(a)>_EPS:
+    if abs(a) > _EPS:
         nzero += 1
-print 'Hamilton matrix: %d/%d non-zero entries'%(nzero,dv**2)
-print 'DVR:'
-print np.real(EV)[:6]
+print('Hamilton matrix: %d/%d non-zero entries' % (nzero, dv**2))
+print('DVR:')
+print(np.real(EV)[:6])
 #
 Eana = np.sort(
     np.array([[[(nx + ny + nz + 1.5) * hbarc * np.sqrt(K / mn)
                 for nx in range(20)] for ny in range(20)]
               for nz in range(20)]).flatten())
-print 'ANA:'
-print Eana[:6]
-print '%d/%d non-zero entries in KIN'%(nzero,dv**2)
+print('ANA:')
+print(Eana[:6])
+print('%d/%d non-zero entries in mkinetic' % (nzero, dv**2))
