@@ -20,9 +20,9 @@ def benchmark(name):
 _EPS = np.finfo(float).eps
 hbarc = 197.327
 # nucleon mass
-mn = 938.
+mn = 938
 # spherically symmetric oszillator strength
-K = 12.
+K = 2
 
 # lattice set-up
 # partnbr: number of particles
@@ -30,71 +30,82 @@ partnbr = 1
 # spacedims: spatial coordinate dimensions (e.g. cartesian x,y,z)
 spacedims = 3
 # length of a coordinate axis/box
-Ltot = 7.
+Ltot = 12
 # left (L0) and right (LN1) boundary of a coordinate axis;
 # these endpoints are not elements of the grid;
-L0 = -Ltot / 2.
-LN1 = Ltot / 2.
-# number of grid points on axis
-N = 7
-# grid spacing
-dr = float(Ltot) / float(N + 1)
+L0 = -Ltot / 2
+LN1 = Ltot / 2
 
-# dimension of the Hilbert space
+# number of grid points on axis
+N = 12
+# grid spacing
+dr = (LN1 - L0) / N
+
+# dimension of the Hilbert space/grid
 dv = (N - 1)**(spacedims * partnbr)
-# print dimension of Hamilton matrix
-print('dv^2: {0}'.format(dv**2))
 
 # initialization of the two components of the Hamiltonian:
 # H = mkinetic + mpotential
 with benchmark('matrix initialization'):
     mpotential = np.zeros((dv, dv))
     mkinetic = np.zeros((dv, dv))
-    print('shape(mpotential) = {}'.format(np.shape(mpotential)))
-    print('shape(mkinetic) = {}'.format(np.shape(mkinetic)))
+    print('Hamiltonian = MAT{}'.format(np.shape(mpotential)))
 
 
+# kernel which evaluates kinetic energy at grid points row,col
 def fill_mkinetic(row=[], col=[]):
-    return
+    tmp = 0.0
+    # sum the contributions to matrix element from each spatial dimension
+    for i in range(len(row)):
+        # diagonal elements
+        if row == col:
+            tmp += ((
+                (2. * N**2 + 1) / 3.) - np.sin(np.pi * row[i] / float(N))**
+                    (-2))
+
+        # off-diagonal elements in one dimension demand equality of all other
+        # coordinates
+        if ((row[i] != col[i]) &
+            (row[(i + 1) % spacedims] == col[(i + 1) % spacedims]) &
+            (row[(i + 2) % spacedims] == col[(i + 2) % spacedims])):
+            tmp += (-1)**(row[i] - col[i]) * (
+                np.sin(np.pi * (row[i] - col[i]) / (2. * N))**
+                (-2) - np.sin(np.pi * (row[i] + col[i]) / (2. * N))**(-2))
+    return tmp
 
 
-grid = list(product(np.arange(1, N), repeat=spacedims * partnbr))
+# kernel which evaluates potential at grid points row,col
+def fill_mpotential(row=[], col=[]):
+    if row == col:
+        return 0.5 * K * sum([(row[n] * dr + L0)**2 for n in range(spacedims)])
+    else:
+        return 0.0
 
-#
-with benchmark("main calculation (ECCE: parallalize this)"):
+
+# writing of the Hamilton matrix contains two basic loops
+# column index b and row index a; e.g.:2 particles: a=(x1,y1,z1,x2,y2,y3) and
+# b=(x1',y1',z1',x2',y2',y3')
+with benchmark("matrix filling"):
     # column index
     colidx = 0
-    for a in grid:
+    # row loop; each grid point specifies <spacedims> coordinates per particle
+    for a in product(np.arange(1, N), repeat=spacedims * partnbr):
         # row index
         rowidx = 0
-        for b in grid:
-            mpotential[rowidx, colidx] = 0.0
-            if np.array_equal(a, b):
-                mpotential[rowidx, colidx] = 0.5 * K * sum([(
-                    a[n] * dr + L0)**2 for n in range(spacedims)])
-            for i in range(spacedims * partnbr):
-                if ((a[i] == b[i]) &
-                    (a[(i + 1) % spacedims] == b[(i + 1) % spacedims]) &
-                    (a[(i + 2) % spacedims] == b[(i + 2) % spacedims])):
-                    mkinetic[rowidx, colidx] += np.pi**2 / (
-                        2. * Ltot**2) * (((2. * N**2 + 1) / 3.) -
-                                         np.sin(np.pi * a[i] / float(N))**(-2))
-                if ((a[i] != b[i]) &
-                    (a[(i + 1) % spacedims] == b[(i + 1) % spacedims]) &
-                    (a[(i + 2) % spacedims] == b[(i + 2) % spacedims])):
-                    mkinetic[rowidx, colidx] += (-1)**(
-                        a[i] - b[i]) * np.pi**2 / (2. * Ltot**2) * (
-                            np.sin(np.pi * (a[i] - b[i]) / (2. * N))**
-                            (-2) - np.sin(np.pi * (a[i] + b[i]) /
-                                          (2. * N))**(-2))
+        # column loop;
+        for b in product(np.arange(1, N), repeat=spacedims * partnbr):
+            mpotential[rowidx, colidx] = fill_mpotential(a, b)
+            mkinetic[rowidx, colidx] = fill_mkinetic(a, b)
             rowidx += 1
         colidx += 1
 
+# calculate the eigenvalues of the sum of the kinetic and potential matrix
 with benchmark("Diagonalization"):
-    mkinetic *= hbarc**2 / (2 * mn)
+    mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * hbarc**2 / (2 * mn)
     HAM = (mkinetic + mpotential)
     EV = np.sort(np.linalg.eigvals(HAM))
 
+#
 nzero = 0
 for a in HAM.flatten():
     if abs(a) > _EPS:
@@ -102,11 +113,10 @@ for a in HAM.flatten():
 print('Hamilton matrix: %d/%d non-zero entries' % (nzero, dv**2))
 print('DVR:')
 print(np.real(EV)[:6])
-#
+
 Eana = np.sort(
     np.array([[[(nx + ny + nz + 1.5) * hbarc * np.sqrt(K / mn)
                 for nx in range(20)] for ny in range(20)]
               for nz in range(20)]).flatten())
 print('ANA:')
 print(Eana[:6])
-print('%d/%d non-zero entries in mkinetic' % (nzero, dv**2))
