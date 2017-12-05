@@ -1,10 +1,12 @@
 from contextlib import contextmanager
 from itertools import product
+from scipy.sparse import *
+from scipy.sparse.linalg import eigsh
 import time
 import numpy as np
 import numpy.linalg
 
-np.set_printoptions(linewidth=300, suppress=True)
+np.set_printoptions(linewidth=300, suppress=True, precision=4)
 
 
 @contextmanager
@@ -37,12 +39,15 @@ L0 = -Ltot / 2
 LN1 = Ltot / 2
 
 # number of grid points on axis
-N = 12
+N = 10
 # grid spacing
 dr = (LN1 - L0) / N
 
 # dimension of the Hilbert space/grid
 dv = (N - 1)**(spacedims * partnbr)
+
+# calculate only the Nev lowest eigenvalues
+Nev = 6
 
 # initialization of the two components of the Hamiltonian:
 # H = mkinetic + mpotential
@@ -98,25 +103,25 @@ with benchmark("matrix filling"):
             mkinetic[rowidx, colidx] = fill_mkinetic(a, b)
             rowidx += 1
         colidx += 1
-
-# calculate the eigenvalues of the sum of the kinetic and potential matrix
-with benchmark("Diagonalization"):
     mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * hbarc**2 / (2 * mn)
     HAM = (mkinetic + mpotential)
-    EV = np.sort(np.linalg.eigvals(HAM))
 
-#
-nzero = 0
-for a in HAM.flatten():
-    if abs(a) > _EPS:
-        nzero += 1
-print('Hamilton matrix: %d/%d non-zero entries' % (nzero, dv**2))
-print('DVR:')
-print(np.real(EV)[:6])
+# calculate the eigenvalues of the sum of the Hamilton matrix (Hermitian)
+with benchmark("Diagonalization -- full matrix structure (DVR)"):
+    EV = np.sort(np.linalg.eigvalsh(HAM))
+    print('Hamilton matrix: %d/%d non-zero entries\n' % (coo_matrix(HAM).nnz,
+                                                         dv**2))
+    print('DVR-full:', np.real(EV)[:Nev])
+
+# calculate the lowest N eigensystem of the matrix in sparse format
+with benchmark("Diagonalization -- sparse matrix structure (DVR)"):
+    evals_small, evecs_small = eigsh(
+        coo_matrix(HAM), Nev, which='SM', maxiter=5000)
+    print('DVR-sparse:', evals_small)
 
 Eana = np.sort(
     np.array([[[(nx + ny + nz + 1.5) * hbarc * np.sqrt(K / mn)
                 for nx in range(20)] for ny in range(20)]
               for nz in range(20)]).flatten())
-print('ANA:')
+print('\n ANA:')
 print(Eana[:6])
