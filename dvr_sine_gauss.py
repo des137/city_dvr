@@ -24,8 +24,8 @@ hbarc = 197.327
 # nucleon mass
 mn = 938
 # Gaussian 2-body potential
-beta = 5.      # fm^-2
-lec  = -2000.  # MeV
+beta = 4.      # fm^-2
+lec  = -505.  # MeV
 
 
 # lattice set-up
@@ -132,7 +132,7 @@ with benchmark("Diagonalization -- full matrix structure (DVR)"):
 with benchmark("Diagonalization -- sparse matrix structure (DVR)"):
     try:
         evals_small, evecs_small = eigsh(
-            coo_matrix(HAM), Nev, which='SA', maxiter=5000)
+            coo_matrix(HAM), Nev, which='SA', maxiter=50000)
         print('DVR-sparse:', evals_small)
     except:
         print('DVR-sparse: diagonalization did not converge/did fail.')
