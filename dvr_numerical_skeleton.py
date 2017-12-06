@@ -8,7 +8,7 @@ import numpy.linalg
 
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
 
-
+#delta function implementation necessary according to the number of particles
 @contextmanager
 def benchmark(name):
     start = time.time()
