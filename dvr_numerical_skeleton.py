@@ -6,7 +6,7 @@ import time
 import numpy as np
 import numpy.linalg
 
-np.set_printoptions(linewidth=300, suppress=True, precision=4)
+np.set_printoptions(linewidth=300, suppress=True, precision=7)
 
 
 @contextmanager
@@ -24,13 +24,14 @@ hbarc = 197.327
 # nucleon mass
 mn = 938
 # spherically symmetric oszillator strength
-K = 2
+K = -150.
 
 # lattice set-up
 # partnbr: number of particles
-partnbr = 1
+partnbr = 2
 # spacedims: spatial coordinate dimensions (e.g. cartesian x,y,z)
 spacedims = 3
+grdpointdim = partnbr * spacedims
 # length of a coordinate axis/box
 Ltot = 12
 # left (L0) and right (LN1) boundary of a coordinate axis;
@@ -39,7 +40,9 @@ L0 = -Ltot / 2
 LN1 = Ltot / 2
 
 # number of grid points on axis
-N = 10
+N = 4
+c1 = np.pi / (2. * N)  # helper: calculate once instead of in every loop
+c2 = ((2. * N**2 + 1) / 3.)
 # grid spacing
 dr = (LN1 - L0) / N
 
@@ -47,13 +50,20 @@ dr = (LN1 - L0) / N
 dv = (N - 1)**(spacedims * partnbr)
 
 # calculate only the Nev lowest eigenvalues
-Nev = 6
+Nev = 4
 
 # initialization of the two components of the Hamiltonian:
 # H = mkinetic + mpotential
 with benchmark('matrix initialization'):
-    mpotential = np.zeros((dv, dv))
-    mkinetic = np.zeros((dv, dv))
+    try:
+        # use regular matrix data type for low-dimensional problems
+        mpotential = np.zeros((dv, dv))
+        mkinetic = np.zeros((dv, dv))
+    except:
+        # for problems that exhaust available memory use sparse type
+        # filling time increases by 2 orders of magnitude
+        mpotential = dok_matrix((dv, dv))
+        mkinetic = dok_matrix((dv, dv))
     print('Hamiltonian = MAT{}'.format(np.shape(mpotential)))
 
 
@@ -61,28 +71,37 @@ with benchmark('matrix initialization'):
 def fill_mkinetic(row=[], col=[]):
     tmp = 0.0
     # sum the contributions to matrix element from each spatial dimension
-    for i in range(len(row)):
+    for i in range(grdpointdim):
         # diagonal elements
         if row == col:
-            tmp += ((
-                (2. * N**2 + 1) / 3.) - np.sin(np.pi * row[i] / float(N))**
-                    (-2))
+            tmp += (c2 - np.sin(2 * c1 * row[i])**(-2))
 
         # off-diagonal elements in one dimension demand equality of all other
-        # coordinates
+        # coordinates; all "fancy" version of the if clause, e.g., np.not_equal
+        # np.delete, np.prod are an order of magnitude slower;
         if ((row[i] != col[i]) &
-            (row[(i + 1) % spacedims] == col[(i + 1) % spacedims]) &
-            (row[(i + 2) % spacedims] == col[(i + 2) % spacedims])):
+            (row[(i + 1) % grdpointdim] == col[(i + 1) % grdpointdim]) &
+            (row[(i + 2) % grdpointdim] == col[(i + 2) % grdpointdim]) &
+            (row[(i + 3) % grdpointdim] == col[(i + 3) % grdpointdim]) &
+            (row[(i + 4) % grdpointdim] == col[(i + 4) % grdpointdim]) &
+            (row[(i + 5) % grdpointdim] == col[(i + 5) % grdpointdim])):
             tmp += (-1)**(row[i] - col[i]) * (
-                np.sin(np.pi * (row[i] - col[i]) / (2. * N))**
-                (-2) - np.sin(np.pi * (row[i] + col[i]) / (2. * N))**(-2))
+                np.sin(c1 * (row[i] - col[i]))**
+                (-2) - np.sin(c1 * (row[i] + col[i]))**(-2))
     return tmp
 
 
 # kernel which evaluates potential at grid points row,col
 def fill_mpotential(row=[], col=[]):
     if row == col:
-        return 0.5 * K * sum([(row[n] * dr + L0)**2 for n in range(spacedims)])
+        v1 = 0.5 * K * np.exp(-sum([(row[n] * dr + L0)**2
+                                    for n in range(spacedims)]))
+        v2 = 0.0
+        if partnbr == 2:
+            v2 = 0.5 * K * np.exp(-sum([(row[n + spacedims] * dr + L0)**2
+                                        for n in range(spacedims)]))
+        return v1 + v2
+        #return 0.5 * K * sum([(row[n] * dr + L0)**2 for n in range(spacedims)])
     else:
         return 0.0
 
@@ -115,13 +134,9 @@ with benchmark("Diagonalization -- full matrix structure (DVR)"):
 
 # calculate the lowest N eigensystem of the matrix in sparse format
 with benchmark("Diagonalization -- sparse matrix structure (DVR)"):
-    evals_small, evecs_small = eigsh(
-        coo_matrix(HAM), Nev, which='SM', maxiter=5000)
-    print('DVR-sparse:', evals_small)
-
-Eana = np.sort(
-    np.array([[[(nx + ny + nz + 1.5) * hbarc * np.sqrt(K / mn)
-                for nx in range(20)] for ny in range(20)]
-              for nz in range(20)]).flatten())
-print('\n ANA:')
-print(Eana[:6])
+    try:
+        evals_small, evecs_small = eigsh(
+            coo_matrix(HAM), Nev, which='SA', maxiter=5000)
+        print('DVR-sparse:', evals_small)
+    except:
+        print('DVR-sparse: diagonalization did not converge/did fail.')
