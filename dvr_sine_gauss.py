@@ -23,9 +23,10 @@ _EPS = np.finfo(float).eps
 hbarc = 197.327
 # nucleon mass
 mn = 938
-# Gaussian 2-body interaction
-lec = -505.1 * 2
-beta = 4.
+# Gaussian 2-body potential
+beta = 5.      # fm^-2
+lec  = -2000.  # MeV
+
 
 # lattice set-up
 # partnbr: number of particles
@@ -34,14 +35,14 @@ partnbr = 2
 spacedims = 3
 grdpointdim = partnbr * spacedims
 # length of a coordinate axis/box
-Ltot = 6
+Ltot = 12
 # left (L0) and right (LN1) boundary of a coordinate axis;
 # these endpoints are not elements of the grid;
 L0 = -Ltot / 2
 LN1 = Ltot / 2
 
 # number of grid points on axis
-N = 5
+N = 4
 c1 = np.pi / (2. * N)  # helper: calculate once instead of in every loop
 c2 = ((2. * N**2 + 1) / 3.)
 # grid spacing
@@ -95,8 +96,8 @@ def fill_mkinetic(row=[], col=[]):
 # kernel which evaluates potential at grid points row,col
 def fill_mpotential(row=[], col=[]):
     if row == col:
-        return lec * np.exp(-beta * sum([(row[n] - row[n + spacedims] * dr)**2
-                                         for n in range(spacedims)]))
+        return lec * np.exp(-beta*sum([((row[n] - row[n+spacedims])* dr)**2
+                                    for n in range(spacedims)]))
     else:
         return 0.0
 
