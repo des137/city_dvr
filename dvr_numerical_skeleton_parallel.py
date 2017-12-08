@@ -12,8 +12,6 @@ from util import benchmark
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
 
 
-
-
 # multi-processor bookkeeping
 comm = MPI.COMM_WORLD
 # who am I?
