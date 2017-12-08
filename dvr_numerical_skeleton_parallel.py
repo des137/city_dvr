@@ -1,6 +1,4 @@
-from contextlib import contextmanager
 from itertools import product
-import time
 
 import numpy as np
 import numpy.linalg
@@ -9,17 +7,11 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import eigsh
 
 from dvr import calc_mkinetic, calc_mpotential
+from util import benchmark
 
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
 
 
-@contextmanager
-def benchmark(name):
-    start = time.time()
-    yield
-    end = time.time()
-
-    print('{} took {:.2f} ms'.format(name, (end - start) * 1000.0))
 
 
 # multi-processor bookkeeping
