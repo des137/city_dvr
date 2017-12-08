@@ -25,8 +25,8 @@ hbarc = 197.327
 # nucleon mass
 mn = 938
 # Gaussian 2-body interaction
-lec = -505.1 * 2
-beta = 4.
+LEC = -505.1 * 2
+BETA = 4.0
 
 # lattice set-up
 PARTNBR = 2  # number of particles
@@ -43,8 +43,7 @@ LN1 = Ltot / 2
 N = 5
 c1 = np.pi / (2. * N)  # helper: calculate once instead of in every loop
 c2 = ((2. * N**2 + 1) / 3.)
-# grid spacing
-dr = (LN1 - L0) / N
+GRID_SPACING = (LN1 - L0) / N
 
 # dimension of the Hilbert space/grid
 dv = (N - 1)**(SPACEDIMS * PARTNBR)
@@ -83,8 +82,8 @@ if mpi_rank != 0:
         for b in list(
                 product(np.arange(1, N), repeat=SPACEDIMS *
                         PARTNBR))[mpi_row_offset:mpi_row_offset + mpi_nbrrows]:
-            mpotential[rowidx, colidx] = calc_mpotential(a, b, GRDPOINTDIM)
-            mkinetic[rowidx, colidx] = calc_mkinetic(a, b, SPACEDIMS)
+            mpotential[rowidx, colidx] = calc_mpotential(a, b, SPACEDIMS, GRID_SPACING, LEC, BETA)
+            mkinetic[rowidx, colidx] = calc_mkinetic(a, b, GRDPOINTDIM)
             rowidx += 1
         colidx += 1
     mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * hbarc**2 / (2 * mn)
