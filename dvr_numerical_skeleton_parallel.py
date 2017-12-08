@@ -7,6 +7,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import eigsh
 
 from dvr import calc_mkinetic, calc_mpotential
+from physics import NUCLEON_MASS, PLANCS_CONSTANT, C, JOULE_PER_EV
 from util import benchmark
 
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
@@ -21,9 +22,10 @@ mpi_size = comm.Get_size()
 
 # parameters defining the physical system
 _EPS = np.finfo(float).eps
-hbarc = 197.327
-# nucleon mass
-mn = 938
+
+#       h*c/(2*pi) in MeV*fm
+HBARC = PLANCS_CONSTANT * C / (2 * np.pi) * JOULE_PER_EV * 10e12 * 10e-6
+
 # Gaussian 2-body interaction
 LEC = -505.1 * 2
 BETA = 4.0
@@ -86,7 +88,7 @@ if mpi_rank != 0:
             mkinetic[rowidx, colidx] = calc_mkinetic(a, b, GRDPOINTDIM)
             rowidx += 1
         colidx += 1
-    mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * hbarc**2 / (2 * mn)
+    mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * HBARC**2 / (2 * NUCLEON_MASS)
     mhamilton = (mkinetic + mpotential)
     end = time.time()
     extime = (end - start)
