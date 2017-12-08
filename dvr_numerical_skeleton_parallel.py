@@ -7,6 +7,8 @@ import time
 import numpy as np
 import numpy.linalg
 
+from dvr import calc_mkinetic, calc_mpotential
+
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
 
 
@@ -36,12 +38,10 @@ lec = -505.1 * 2
 beta = 4.
 
 # lattice set-up
-# partnbr: number of particles
-partnbr = 2
-# spacedims: spatial coordinate dimensions (e.g. cartesian x,y,z)
-spacedims = 3
-grdpointdim = partnbr * spacedims
-# length of a coordinate axis/box
+PARTNBR = 2  # number of particles
+SPACEDIMS = 3  # spatial coordinate dimensions (e.g. cartesian x,y,z)
+GRDPOINTDIM = PARTNBR * SPACEDIMS  # length of a coordinate axis/box
+
 Ltot = 6
 # left (L0) and right (LN1) boundary of a coordinate axis;
 # these endpoints are not elements of the grid;
@@ -56,7 +56,7 @@ c2 = ((2. * N**2 + 1) / 3.)
 dr = (LN1 - L0) / N
 
 # dimension of the Hilbert space/grid
-dv = (N - 1)**(spacedims * partnbr)
+dv = (N - 1)**(SPACEDIMS * PARTNBR)
 # number of rows which are filled by a single processor
 if mpi_rank == 0:
     mpi_nbrrows = dv
@@ -76,40 +76,6 @@ mpotential = np.zeros((dv, dv))
 mkinetic = np.zeros((dv, dv))
 mhamilton = np.zeros((dv, dv))
 
-
-# kernel which evaluates kinetic energy at grid points row,col
-def fill_mkinetic(row=[], col=[]):
-    tmp = 0.0
-    # sum the contributions to matrix element from each spatial dimension
-    for i in range(grdpointdim):
-        # diagonal elements
-        if row == col:
-            tmp += (c2 - np.sin(2 * c1 * row[i])**(-2))
-
-        # off-diagonal elements in one dimension demand equality of all other
-        # coordinates; all "fancy" version of the if clause, e.g., np.not_equal
-        # np.delete, np.prod are an order of magnitude slower;
-        if ((row[i] != col[i]) &
-            (row[(i + 1) % grdpointdim] == col[(i + 1) % grdpointdim]) &
-            (row[(i + 2) % grdpointdim] == col[(i + 2) % grdpointdim]) &
-            (row[(i + 3) % grdpointdim] == col[(i + 3) % grdpointdim]) &
-            (row[(i + 4) % grdpointdim] == col[(i + 4) % grdpointdim]) &
-            (row[(i + 5) % grdpointdim] == col[(i + 5) % grdpointdim])):
-            tmp += (-1)**(row[i] - col[i]) * (
-                np.sin(c1 * (row[i] - col[i]))**
-                (-2) - np.sin(c1 * (row[i] + col[i]))**(-2))
-    return tmp
-
-
-# kernel which evaluates potential at grid points row,col
-def fill_mpotential(row=[], col=[]):
-    if row == col:
-        return lec * np.exp(-beta * sum([(row[n] - row[n + spacedims] * dr)**2
-                                         for n in range(spacedims)]))
-    else:
-        return 0.0
-
-
 # writing of the Hamilton matrix contains two basic loops
 # column index b and row index a; e.g.:2 particles: a=(x1,y1,z1,x2,y2,y3) and
 # b=(x1',y1',z1',x2',y2',y3')
@@ -118,16 +84,16 @@ if mpi_rank != 0:
     start = time.time()
     # column index
     colidx = 0
-    # row loop; each grid point specifies <spacedims> coordinates per particle
-    for a in product(np.arange(1, N), repeat=spacedims * partnbr):
+    # row loop; each grid point specifies <SPACEDIMS> coordinates per particle
+    for a in product(np.arange(1, N), repeat=SPACEDIMS * PARTNBR):
         # row index
         rowidx = mpi_row_offset
         # column loop;
         for b in list(
-                product(np.arange(1, N), repeat=spacedims *
-                        partnbr))[mpi_row_offset:mpi_row_offset + mpi_nbrrows]:
-            mpotential[rowidx, colidx] = fill_mpotential(a, b)
-            mkinetic[rowidx, colidx] = fill_mkinetic(a, b)
+                product(np.arange(1, N), repeat=SPACEDIMS *
+                        PARTNBR))[mpi_row_offset:mpi_row_offset + mpi_nbrrows]:
+            mpotential[rowidx, colidx] = calc_mpotential(a, b, GRDPOINTDIM)
+            mkinetic[rowidx, colidx] = calc_mkinetic(a, b, SPACEDIMS)
             rowidx += 1
         colidx += 1
     mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * hbarc**2 / (2 * mn)
