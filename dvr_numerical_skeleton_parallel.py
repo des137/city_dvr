@@ -1,11 +1,12 @@
 from contextlib import contextmanager
 from itertools import product
-from scipy.sparse import coo_matrix
-from scipy.sparse.linalg import eigsh
-from mpi4py import MPI
 import time
+
 import numpy as np
 import numpy.linalg
+from mpi4py import MPI
+from scipy.sparse import coo_matrix
+from scipy.sparse.linalg import eigsh
 
 from dvr import calc_mkinetic, calc_mpotential
 
