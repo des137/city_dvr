@@ -49,7 +49,7 @@ L0 = -Ltot / 2
 LN1 = Ltot / 2
 
 # number grid segments = (grid points - 1)
-N = 5
+N = 4
 c1 = np.pi / (2. * N)  # helper: calculate once instead of in every loop
 c2 = ((2. * N**2 + 1) / 3.)
 # grid spacing
@@ -58,14 +58,11 @@ dr = (LN1 - L0) / N
 # dimension of the Hilbert space/grid
 dv = (N - 1)**(spacedims * partnbr)
 # number of rows which are filled by a single processor
-if mpi_rank == 0:
-    mpi_nbrrows = dv
-else:
-    mpi_nbrrows = int(dv / (mpi_size - 1))
-    if mpi_rank == mpi_size - 1:
-        mpi_nbrrows += dv % (mpi_size - 1)
-    # processor n fills rows [mpi_row_offset , mpi_row_offset + mpi_nbrrows]
-    mpi_row_offset = (mpi_rank - 1) * int(dv / (mpi_size - 1))
+mpi_nbrrows = int(dv / (mpi_size - 1))
+if mpi_rank == mpi_size - 1:
+    mpi_nbrrows += dv % (mpi_size - 1)
+# processor n fills rows [mpi_row_offset , mpi_row_offset + mpi_nbrrows]
+mpi_row_offset = mpi_rank * int(dv / (mpi_size - 1))
 
 # calculate only the Nev lowest eigenvalues
 Nev = 4
@@ -113,33 +110,28 @@ def fill_mpotential(row=[], col=[]):
 # writing of the Hamilton matrix contains two basic loops
 # column index b and row index a; e.g.:2 particles: a=(x1,y1,z1,x2,y2,y3) and
 # b=(x1',y1',z1',x2',y2',y3')
-extime = 0
-if mpi_rank != 0:
-    start = time.time()
+with benchmark("cpu%d: Matrix filling" % mpi_rank):
     # column index
-    colidx = 0
+    colidx = mpi_row_offset
+    print('cpu%d: rows %d -> %d' % (mpi_rank, mpi_row_offset,
+                                    mpi_row_offset + mpi_nbrrows))
     # row loop; each grid point specifies <spacedims> coordinates per particle
-    for a in product(np.arange(1, N), repeat=spacedims * partnbr):
+    for a in list(
+            product(np.arange(1, N), repeat=spacedims *
+                    partnbr))[mpi_row_offset:mpi_row_offset + mpi_nbrrows]:
         # row index
-        rowidx = mpi_row_offset
+        rowidx = 0
         # column loop;
-        for b in list(
-                product(np.arange(1, N), repeat=spacedims *
-                        partnbr))[mpi_row_offset:mpi_row_offset + mpi_nbrrows]:
+        for b in product(np.arange(1, N), repeat=spacedims * partnbr):
             mpotential[rowidx, colidx] = fill_mpotential(a, b)
             mkinetic[rowidx, colidx] = fill_mkinetic(a, b)
             rowidx += 1
         colidx += 1
     mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * hbarc**2 / (2 * mn)
     mhamilton = (mkinetic + mpotential)
-    end = time.time()
-    extime = (end - start)
-    print('cpu%d: sub-matrix filled in %4.4fs' % (mpi_rank, extime * 1000))
+
 comm.Barrier()
 mhamilton = comm.gather(mhamilton, root=0)
-fill_time = []
-fill_time = comm.gather(extime, root=0)
-if mpi_rank == 0: print('root: total fill time %4.4fs' % sum(fill_time * 1000))
 
 # calculate the eigenvalues of the sum of the Hamilton matrix (Hermitian)
 if mpi_rank == 0:

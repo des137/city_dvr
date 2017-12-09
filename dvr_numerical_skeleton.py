@@ -8,6 +8,7 @@ import numpy.linalg
 
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
 
+
 #delta function implementation necessary according to the number of particles
 @contextmanager
 def benchmark(name):
@@ -41,7 +42,7 @@ L0 = -Ltot / 2
 LN1 = Ltot / 2
 
 # number of grid points on axis
-N = 5
+N = 4
 c1 = np.pi / (2. * N)  # helper: calculate once instead of in every loop
 c2 = ((2. * N**2 + 1) / 3.)
 # grid spacing
