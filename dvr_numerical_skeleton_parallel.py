@@ -1,22 +1,16 @@
-from contextlib import contextmanager
 from itertools import product
-from scipy.sparse import coo_matrix
-from scipy.sparse.linalg import eigsh
-from mpi4py import MPI
-import time
+
 import numpy as np
 import numpy.linalg
+from mpi4py import MPI
+from scipy.sparse import coo_matrix
+from scipy.sparse.linalg import eigsh
+
+from dvr import calc_mkinetic, calc_mpotential
+from physics import NUCLEON_MASS, PLANCS_CONSTANT, C, JOULE_PER_EV
+from util import benchmark
 
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
-
-
-@contextmanager
-def benchmark(name):
-    start = time.time()
-    yield
-    end = time.time()
-
-    print('{} took {:.2f} ms'.format(name, (end - start) * 1000.0))
 
 
 # multi-processor bookkeeping
@@ -28,20 +22,19 @@ mpi_size = comm.Get_size()
 
 # parameters defining the physical system
 _EPS = np.finfo(float).eps
-hbarc = 197.327
-# nucleon mass
-mn = 938
+
+#       h*c/(2*pi) in MeV*fm
+HBARC = PLANCS_CONSTANT * C / (2 * np.pi) * JOULE_PER_EV * 10e12 * 10e-6
+
 # Gaussian 2-body interaction
-lec = -505.1 * 2
-beta = 4.
+LEC = -505.1 * 2
+BETA = 4.0
 
 # lattice set-up
-# partnbr: number of particles
-partnbr = 2
-# spacedims: spatial coordinate dimensions (e.g. cartesian x,y,z)
-spacedims = 3
-grdpointdim = partnbr * spacedims
-# length of a coordinate axis/box
+PARTNBR = 2  # number of particles
+SPACEDIMS = 3  # spatial coordinate dimensions (e.g. cartesian x,y,z)
+GRDPOINTDIM = PARTNBR * SPACEDIMS  # length of a coordinate axis/box
+
 Ltot = 6
 # left (L0) and right (LN1) boundary of a coordinate axis;
 # these endpoints are not elements of the grid;
@@ -52,11 +45,10 @@ LN1 = Ltot / 2
 N = 4
 c1 = np.pi / (2. * N)  # helper: calculate once instead of in every loop
 c2 = ((2. * N**2 + 1) / 3.)
-# grid spacing
-dr = (LN1 - L0) / N
+GRID_SPACING = (LN1 - L0) / N
 
 # dimension of the Hilbert space/grid
-dv = (N - 1)**(spacedims * partnbr)
+dv = (N - 1)**(SPACEDIMS * PARTNBR)
 # number of rows which are filled by a single processor
 mpi_nbrrows = int(dv / (mpi_size - 1))
 if mpi_rank == mpi_size - 1:
@@ -73,45 +65,12 @@ mpotential = np.zeros((dv, dv))
 mkinetic = np.zeros((dv, dv))
 mhamilton = np.zeros((dv, dv))
 
-
-# kernel which evaluates kinetic energy at grid points row,col
-def fill_mkinetic(row=[], col=[]):
-    tmp = 0.0
-    # sum the contributions to matrix element from each spatial dimension
-    for i in range(grdpointdim):
-        # diagonal elements
-        if row == col:
-            tmp += (c2 - np.sin(2 * c1 * row[i])**(-2))
-
-        # off-diagonal elements in one dimension demand equality of all other
-        # coordinates; all "fancy" version of the if clause, e.g., np.not_equal
-        # np.delete, np.prod are an order of magnitude slower;
-        if ((row[i] != col[i]) &
-            (row[(i + 1) % grdpointdim] == col[(i + 1) % grdpointdim]) &
-            (row[(i + 2) % grdpointdim] == col[(i + 2) % grdpointdim]) &
-            (row[(i + 3) % grdpointdim] == col[(i + 3) % grdpointdim]) &
-            (row[(i + 4) % grdpointdim] == col[(i + 4) % grdpointdim]) &
-            (row[(i + 5) % grdpointdim] == col[(i + 5) % grdpointdim])):
-            tmp += (-1)**(row[i] - col[i]) * (
-                np.sin(c1 * (row[i] - col[i]))**
-                (-2) - np.sin(c1 * (row[i] + col[i]))**(-2))
-    return tmp
-
-
-# kernel which evaluates potential at grid points row,col
-def fill_mpotential(row=[], col=[]):
-    if row == col:
-        return lec * np.exp(-beta * sum([(row[n] - row[n + spacedims] * dr)**2
-                                         for n in range(spacedims)]))
-    else:
-        return 0.0
-
-
 # writing of the Hamilton matrix contains two basic loops
 # column index b and row index a; e.g.:2 particles: a=(x1,y1,z1,x2,y2,y3) and
 # b=(x1',y1',z1',x2',y2',y3')
 with benchmark("cpu%d: Matrix filling" % mpi_rank):
     # column index
+<<<<<<< HEAD
     colidx = mpi_row_offset
     print('cpu%d: rows %d -> %d' % (mpi_rank, mpi_row_offset,
                                     mpi_row_offset + mpi_nbrrows))
@@ -119,15 +78,28 @@ with benchmark("cpu%d: Matrix filling" % mpi_rank):
     for a in list(
             product(np.arange(1, N), repeat=spacedims *
                     partnbr))[mpi_row_offset:mpi_row_offset + mpi_nbrrows]:
+=======
+    colidx = 0
+    # row loop; each grid point specifies <SPACEDIMS> coordinates per particle
+    for a in product(np.arange(1, N), repeat=SPACEDIMS * PARTNBR):
+>>>>>>> 925e980509de94dc4a8879b8eefe0800f1d175b7
         # row index
         rowidx = 0
         # column loop;
+<<<<<<< HEAD
         for b in product(np.arange(1, N), repeat=spacedims * partnbr):
             mpotential[rowidx, colidx] = fill_mpotential(a, b)
             mkinetic[rowidx, colidx] = fill_mkinetic(a, b)
+=======
+        for b in list(
+                product(np.arange(1, N), repeat=SPACEDIMS *
+                        PARTNBR))[mpi_row_offset:mpi_row_offset + mpi_nbrrows]:
+            mpotential[rowidx, colidx] = calc_mpotential(a, b, SPACEDIMS, GRID_SPACING, LEC, BETA)
+            mkinetic[rowidx, colidx] = calc_mkinetic(a, b, GRDPOINTDIM)
+>>>>>>> 925e980509de94dc4a8879b8eefe0800f1d175b7
             rowidx += 1
         colidx += 1
-    mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * hbarc**2 / (2 * mn)
+    mkinetic *= np.pi**2 / (2. * (LN1 - L0)**2) * HBARC**2 / (2 * NUCLEON_MASS)
     mhamilton = (mkinetic + mpotential)
 
 comm.Barrier()
