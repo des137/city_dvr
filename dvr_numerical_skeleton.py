@@ -8,6 +8,7 @@ import numpy.linalg
 
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
 
+
 #delta function implementation necessary according to the number of particles
 @contextmanager
 def benchmark(name):
@@ -23,8 +24,9 @@ _EPS = np.finfo(float).eps
 hbarc = 197.327
 # nucleon mass
 mn = 938
-# spherically symmetric oszillator strength
-K = -150.
+# Gaussian 2-body interaction
+lec = -505.1 * 2
+beta = 4.
 
 # lattice set-up
 # partnbr: number of particles
@@ -33,7 +35,7 @@ partnbr = 2
 spacedims = 3
 grdpointdim = partnbr * spacedims
 # length of a coordinate axis/box
-Ltot = 12
+Ltot = 6
 # left (L0) and right (LN1) boundary of a coordinate axis;
 # these endpoints are not elements of the grid;
 L0 = -Ltot / 2
@@ -94,14 +96,8 @@ def fill_mkinetic(row=[], col=[]):
 # kernel which evaluates potential at grid points row,col
 def fill_mpotential(row=[], col=[]):
     if row == col:
-        v1 = 0.5 * K * np.exp(-sum([(row[n] * dr + L0)**2
-                                    for n in range(spacedims)]))
-        v2 = 0.0
-        if partnbr == 2:
-            v2 = 0.5 * K * np.exp(-sum([(row[n + spacedims] * dr + L0)**2
-                                        for n in range(spacedims)]))
-        return v1 + v2
-        #return 0.5 * K * sum([(row[n] * dr + L0)**2 for n in range(spacedims)])
+        return lec * np.exp(-beta * sum([(row[n] - row[n + spacedims] * dr)**2
+                                         for n in range(spacedims)]))
     else:
         return 0.0
 
