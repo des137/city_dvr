@@ -18,7 +18,7 @@ comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
 
-dim = int(1e4 + 1)
+dim = int(1e1 + 1)
 dv = np.arange(dim)
 
 dvini = rank * int(dim / size)
