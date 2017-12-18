@@ -17,20 +17,21 @@ def benchmark(name):
 
     print('{} took {:.2f} ms'.format(name, (end - start) * 1000.0))
 
+
 # parameters defining the physical system
 _EPS = np.finfo(float).eps
 hbarc = 197.327
 # nucleon mass
-mn = 938
-# Gaussian 2-body potential
-beta = 4.      # fm^-2
-lec  = -505.  # MeV
+mn = 938.
+# spherically symmetric oszillator strength
+K = -150.
+om=np.sqrt(mn/-K)
 
 # lattice set-up
 # partnbr: number of particles
 partnbr = 2
 # spacedims: spatial coordinate dimensions (e.g. cartesian x,y,z)
-spacedims = 2
+spacedims = 3
 grdpointdim = partnbr * spacedims
 # length of a coordinate axis/box
 Ltot = 12
@@ -39,7 +40,7 @@ Ltot = 12
 L0 = -Ltot / 2
 LN1 = Ltot / 2
 
-# number of grid points on axis
+# number of segments of the axis
 N = 4
 c1 = np.pi / (2. * N)  # helper: calculate once instead of in every loop
 c2 = ((2. * N**2 + 1) / 3.)
@@ -66,6 +67,30 @@ with benchmark('matrix initialization'):
         mkinetic = dok_matrix((dv, dv))
     print('Hamiltonian = MAT{}'.format(np.shape(mpotential)))
 
+# matrix elements of the position operator
+
+
+def fill_mkinetic(row=[], col=[]):
+    tmp = 0.0
+    # sum the contributions to matrix element from each spatial dimension
+    for i in range(grdpointdim):
+        # diagonal elements
+        if row == col:
+                tmp += (c2 - np.sin(2 * c1 * row[i])**(-2))
+
+        # off-diagonal elements in one dimension demand equality of all other
+        # coordinates; all "fancy" version of the if clause, e.g., np.not_equal
+        # np.delete, np.prod are an order of magnitude slower;
+        if ((row[i] != col[i]) &
+            (row[(i + 1) % grdpointdim] == col[(i + 1) % grdpointdim]) &
+            (row[(i + 2) % grdpointdim] == col[(i + 2) % grdpointdim]) &#):#&
+            (row[(i + 3) % grdpointdim] == col[(i + 3) % grdpointdim]) &
+            (row[(i + 4) % grdpointdim] == col[(i + 4) % grdpointdim]) &
+            (row[(i + 5) % grdpointdim] == col[(i + 5) % grdpointdim])):
+            tmp += (-1)**(row[i] - col[i]) * (
+                np.sin(c1 * (row[i] - col[i]))**
+                (-2) - np.sin(c1 * (row[i] + col[i]))**(-2))
+    return tmp
 
 # kernel which evaluates kinetic energy at grid points row,col
 def fill_mkinetic(row=[], col=[]):
@@ -81,24 +106,28 @@ def fill_mkinetic(row=[], col=[]):
         # np.delete, np.prod are an order of magnitude slower;
         if ((row[i] != col[i]) &
             (row[(i + 1) % grdpointdim] == col[(i + 1) % grdpointdim]) &
-            (row[(i + 2) % grdpointdim] == col[(i + 2) % grdpointdim]) &
-            (row[(i + 3) % grdpointdim] == col[(i + 3) % grdpointdim]) &
-            (row[(i + 4) % grdpointdim] == col[(i + 4) % grdpointdim]) &
-            (row[(i + 5) % grdpointdim] == col[(i + 5) % grdpointdim])):
+            (row[(i + 2) % grdpointdim] == col[(i + 2) % grdpointdim]) ):#&
+          #  (row[(i + 3) % grdpointdim] == col[(i + 3) % grdpointdim]) &
+          #  (row[(i + 4) % grdpointdim] == col[(i + 4) % grdpointdim]) &
+          #  (row[(i + 5) % grdpointdim] == col[(i + 5) % grdpointdim])):
             tmp += (-1)**(row[i] - col[i]) * (
                 np.sin(c1 * (row[i] - col[i]))**
                 (-2) - np.sin(c1 * (row[i] + col[i]))**(-2))
     return tmp
 
-
 # kernel which evaluates potential at grid points row,col
 def fill_mpotential(row=[], col=[]):
     if row == col:
-        return lec * np.exp(-beta*sum([((row[n] - row[n+spacedims])* dr)**2
+        v1 = 0.5 * K * np.exp(-sum([(row[n] * dr + L0)**2
                                     for n in range(spacedims)]))
+        v2 = 0.0
+        if partnbr == 2:
+            v2 = 0.5 * K * np.exp(-sum([(row[n + spacedims] * dr + L0)**2
+                                        for n in range(spacedims)]))
+        return v1 + v2
+        #return 0.5 * K * sum([(row[n] * dr + L0)**2 for n in range(spacedims)])
     else:
         return 0.0
-
 
 # writing of the Hamilton matrix contains two basic loops
 # column index b and row index a; e.g.:2 particles: a=(x1,y1,z1,x2,y2,y3) and
@@ -130,7 +159,7 @@ with benchmark("Diagonalization -- full matrix structure (DVR)"):
 with benchmark("Diagonalization -- sparse matrix structure (DVR)"):
     try:
         evals_small, evecs_small = eigsh(
-            coo_matrix(HAM), Nev, which='SA', maxiter=50000)
+            coo_matrix(HAM), Nev, which='SA', maxiter=5000)
         print('DVR-sparse:', evals_small)
     except:
         print('DVR-sparse: diagonalization did not converge/did fail.')

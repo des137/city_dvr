@@ -9,21 +9,22 @@ np.set_printoptions(linewidth=300, suppress=True, precision=7)
 references are made to Phys. Rept. 324 (2000) 1-105
 
 """
-
 MASS = NUCLEON_MASS / HBARC  # mass in [fm^-1]
 OMEGA = 1.9  # frequency in [fm]
 XEQ = 0.  # oscillator origin in [fm]
 
-GRID_DIM = 5
-pos_op_mat = np.zeros((GRID_DIM, GRID_DIM))
+GRID_DIM = 20
+#maxherm  = 40
 
+#randomhermit = np.random.randint(maxherm, size=GRID_DIM)
+
+pos_op_mat = np.zeros((GRID_DIM, GRID_DIM))
 
 # def HO basis functions (Eq.B31), pass arguments in consistent units.
 def phi(j, x, xeq, mass, omega):
     return 1. / np.sqrt(2**j * factorial(j)) * (
         mass * omega)**0.25 * hermite(j)(np.sqrt(mass * omega) * (
             x - xeq)) * np.exp(-0.5 * mass * omega * (x - xeq)**2)
-
 
 # populate position-operator matrix in HO-basis representation (Eq. B.32)
 for j in range(GRID_DIM):
@@ -56,18 +57,39 @@ for alpha in range(GRID_DIM):
                 eigen_sys[0][alpha] - XEQ)**2
 
 hamiltonian_mat = kin_op_mat + pot_op_mat
-eigen_sys = np.linalg.eigh(hamiltonian_mat)
-print(eigen_sys[0][:5])
+eigen_sys_new = np.linalg.eigh(hamiltonian_mat)
+print(eigen_sys_new[0][:5])
 nmax = 20
 print(eigenvalues_harmonic_osci(OMEGA, nmax, 1)[:5])
-exit()
+#exit()
 # visualize a basis function along with the eigenvalues of the position operator
-test_grid = np.linspace(-0.2, 0.2, 100)
-hermit_order = 6
+dimg = 1000
+test_grid = np.linspace(-2, 2, dimg)
+hermit_order = 20
 phi_1 = phi(hermit_order, test_grid, XEQ, MASS, OMEGA)
 
 fig = plt.figure()
 ax1 = fig.add_subplot(111)
+
+#m = [[] for m in range(GRID_DIM) ]
+
+#m=[]
+#for j in range(GRID_DIM):
+#	m+=phi(j, test_grid, XEQ, MASS, OMEGA)*eigen_sys[1][j, 1]
+
+#ax1.plot(test_grid,m)
+	
+#for alpha in  range(GRID_DIM):
+#	tmp = np.zeros(dimg) 
+#	for j in range(GRID_DIM):
+#		tmp += np.array(phi(j, test_grid, XEQ, MASS, OMEGA))*eigen_sys[1][j, alpha]
+#	m[alpha] = tmp
+
+#ax1.plot(test_grid,m[7])
+
+cordi=3
+m = np.sum(phi(j, test_grid, XEQ, MASS, OMEGA)*eigen_sys[1][j, cordi] for j in range(GRID_DIM))
+ax1.plot(test_grid,m)
 
 ax1.plot(
     test_grid,
