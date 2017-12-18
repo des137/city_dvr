@@ -3,6 +3,7 @@ import numpy.linalg
 from scipy.special import hermite, factorial
 import matplotlib.pyplot as plt
 from physics import NUCLEON_MASS, PLANCS_CONSTANT, C, JOULE_PER_EV, HBARC, eigenvalues_harmonic_osci
+from dvr import calc_grid
 
 np.set_printoptions(linewidth=300, suppress=True, precision=7)
 """
@@ -11,11 +12,10 @@ references are made to Phys. Rept. 324 (2000) 1-105
 """
 
 MASS = NUCLEON_MASS / HBARC  # mass in [fm^-1]
-OMEGA = 1.9  # frequency in [fm]
+OMEGA = 1.  # frequency in [fm]
 XEQ = 0.  # oscillator origin in [fm]
 
-GRID_DIM = 5
-pos_op_mat = np.zeros((GRID_DIM, GRID_DIM))
+GRID_DIM = 3
 
 
 # def HO basis functions (Eq.B31), pass arguments in consistent units.
@@ -25,18 +25,8 @@ def phi(j, x, xeq, mass, omega):
             x - xeq)) * np.exp(-0.5 * mass * omega * (x - xeq)**2)
 
 
-# populate position-operator matrix in HO-basis representation (Eq. B.32)
-for j in range(GRID_DIM):
-    for k in range(GRID_DIM):
-        if j == k:
-            pos_op_mat[j, k] = XEQ
-        if j == k - 1:
-            pos_op_mat[j, k] = np.sqrt((j + 1) / (2 * MASS * OMEGA))
-        if j == k + 1:
-            pos_op_mat[j, k] = np.sqrt(j / (2 * MASS * OMEGA))
-
 # calculate U^+ X U , to convince yourself that you understand the syntax
-eigen_sys = np.linalg.eigh(pos_op_mat)
+eigen_sys = calc_grid(GRID_DIM, ['HO', [1, 0.0, MASS, OMEGA]])
 eigen_pos = eigen_sys[0]
 
 # calculate the matrix elements of the second-derivative operator via Eq. B.36
@@ -55,6 +45,8 @@ for alpha in range(GRID_DIM):
             pot_op_mat[alpha, beta] = 0.5 * MASS * OMEGA**2 * (
                 eigen_sys[0][alpha] - XEQ)**2
 
+print(kin_op_mat)
+print(pot_op_mat)
 hamiltonian_mat = kin_op_mat + pot_op_mat
 eigen_sys = np.linalg.eigh(hamiltonian_mat)
 print(eigen_sys[0][:5])
