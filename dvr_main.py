@@ -17,14 +17,15 @@ BETA = 4.0
 POT_GAUSS = ['GAUSS', BETA, LEC]
 
 # isotropic harmonic oscillator
-OMEGA = 1.
+OMEGA = -1.
 X_EQ = 0.
 POT_HO = ['HO', X_EQ, MASS / HBARC, OMEGA]
+POT_HO_INTER = ['HOINT', OMEGA]
 
 # lattice set-up
-PARTNBR = 1  # number of particles
-SPACEDIMS = 2  # spatial coordinate dimensions (e.g. Cartesian x,y,z)
-BASIS_DIM = 55  # (dim of variational basis) = (nbr of grid points) = (nbr of segments - 1)
+PARTNBR = 2  # number of particles
+SPACEDIMS = 3  # spatial coordinate dimensions (e.g. Cartesian x,y,z)
+BASIS_DIM = 5  # (dim of variational basis) = (nbr of grid points) = (nbr of segments - 1)
 
 # specify the variational basis
 BOX_SIZE = 8  #BASIS_DIM + 0  # physical length of one spatial dimension (in Fermi); relevant for specific bases, only!
@@ -83,7 +84,8 @@ def calc_mhamilton(n_part, dim_space, dim_bas, spec_bas, spec_pot):
 
 ham = []
 with benchmark("Matrix filling"):
-    ham = calc_mhamilton(PARTNBR, SPACEDIMS, BASIS_DIM, BASIS_SINE, POT_HO)
+    ham = calc_mhamilton(PARTNBR, SPACEDIMS, BASIS_DIM, BASIS_SINE,
+                         POT_HO_INTER)
 
 sparsimonius = True  # False '=' full matrix diagonalization; True '=' approximate determination of the lowest <N_EIGEN> eigenvalues
 
@@ -92,9 +94,12 @@ if sparsimonius:
         # calculate the lowest N eigensystem of the matrix in sparse format
         evals_small, evecs_small = eigsh(
             coo_matrix(ham), N_EIGENV, which='SA', maxiter=5000)
-        print('Hamilton ( %d X %d ) matrix: %d/%d non-zero entries\n' %
-              (np.shape(ham)[0], np.shape(ham)[1], coo_matrix(ham).nnz,
-               (BASIS_DIM**(SPACEDIMS * PARTNBR))**2))
+        print(
+            'Hamilton ( %d X %d ) matrix: %d/%d = %3.2f%% non-zero entries\n' %
+            (np.shape(ham)[0], np.shape(ham)[1], coo_matrix(ham).nnz,
+             (BASIS_DIM**
+              (SPACEDIMS * PARTNBR))**2, 100. * coo_matrix(ham).nnz / float(
+                  (BASIS_DIM**(SPACEDIMS * PARTNBR))**2)))
         print('DVR-sparse:\n', evals_small[:min(N_EIGENV, np.shape(ham)[1])])
 else:
     with benchmark("Diagonalization -- full matrix structure (DVR)"):
@@ -105,6 +110,7 @@ else:
                (BASIS_DIM**(SPACEDIMS * PARTNBR))**2))
         print('DVR-full:\n', np.real(EV)[:N_EIGENV])
 
+exit()
 with benchmark("Calculate %d-particle %d-dimensional HO ME analytically" %
                (PARTNBR, SPACEDIMS)):
     nmax = 20

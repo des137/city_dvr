@@ -161,4 +161,12 @@ def calc_potential(n_part, space_dims, pot_specs, eigensys_coord):
 
             idx += 1
 
+    if pot_specs[0] == 'HOINT':
+        for coord in grd1D:
+            mpotential[idx] = (0.5 * pot_specs[1]**2 * sum(
+                np.array([[[(coord[i + x] - coord[j + x])**2
+                            for i in range(n_part)] for j in range(n_part)]
+                          for x in range(space_dims)]).flatten()))
+            idx += 1
+
     return mpotential
