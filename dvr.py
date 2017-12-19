@@ -33,7 +33,7 @@ def calc_grid(dimension, basis_specs):
         evsys = np.linalg.eigh(pos_op_mat)
         evs = basis_specs[1][2] + basis_specs[1][1] / np.pi * np.arccos(
             evsys[0])
-        return [evs, evsys[1]]
+        return [np.sort(evs), evsys[1]]
 
     if basis_specs[0] == 'HO':
         for j in range(dimension):
@@ -73,6 +73,16 @@ def calc_Ekin(dim_basis, n_part, basis_specs, eigensys_coord):
         # the eigenvalues; as the eigenvalues do not include the edges, 2*dx
         # has to be added;
 
+        if sum(
+                np.isclose(
+                    np.diff(eigensys_coord[0]),
+                    np.roll(np.diff(eigensys_coord[0]),
+                            1))) != len(eigensys_coord[0]) - 1:
+            print(
+                'Grid points of the SINE basis are not equally spaced! Exiting...'
+            )
+            exit()
+
         dx = abs(eigensys_coord[0][1] - eigensys_coord[0][0])
         L = abs(eigensys_coord[0][-1] - eigensys_coord[0][0]) + 2 * dx
         for i in range(dim_basis):
@@ -91,7 +101,7 @@ def calc_Ekin(dim_basis, n_part, basis_specs, eigensys_coord):
                                       (i_idx + ip_idx))**(-2))
                 tmp[i, ip] *= np.pi**2 / (2. * L**2)
 
-        tmp = tmp / (-2 * basis_specs[1][3])
+        tmp = tmp / (2. * basis_specs[1][3])
         # this factor has to be verified!
 
     if basis_specs[0] == 'HO':
