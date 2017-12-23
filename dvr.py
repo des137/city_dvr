@@ -148,6 +148,11 @@ def calc_potential(n_part, space_dims, pot_specs, eigensys_coord):
     grd1D = product(eigensys_coord[0], repeat=(space_dims * n_part))
 
     if pot_specs[0] == 'GAUSS':
+        if n_part < 2:
+            print(
+                'Gaussian interaction implemented for N > 1 particles! exiting...'
+            )
+            exit()
         for coord in grd1D:
             mpotential[idx] = pot_specs[2] * np.exp(
                 -pot_specs[1] * sum([(coord[n] - coord[n + space_dims])**2
@@ -162,11 +167,55 @@ def calc_potential(n_part, space_dims, pot_specs, eigensys_coord):
             idx += 1
 
     if pot_specs[0] == 'HOINT':
+        if n_part < 2:
+            print(
+                'HO interaction (NOT trap) implemented for N > 1 particles! exiting...'
+            )
+            exit()
         for coord in grd1D:
-            mpotential[idx] = (0.5 * pot_specs[1]**2 * sum(
+            mpotential[idx] = (pot_specs[1] * sum(
                 np.array([[[(coord[i + x] - coord[j + x])**2
                             for i in range(n_part)] for j in range(n_part)]
                           for x in range(space_dims)]).flatten()))
             idx += 1
 
     return mpotential
+
+
+def calc_mhamilton(n_part, dim_space, dim_bas, spec_bas, spec_pot):
+    """ Function returns the Hamilton matrix; 
+
+        :n_part: number of particles
+        :dim_space: spatial (Cartesian) dimensions
+        :dim_bas: variational-basis dim = number of segments each coordinate is divided into
+        :spec_pot: parameters specifying the interaction potential
+        :spec_bas: parameters specifying the basis
+
+        :return: full Hamilton matrix in D(iscrete) V(ariable) R(epresentation)
+    """
+    # dimension of a single coordinate point; e.g., 2D 2Part: (x1,y1,x2,y2)
+    # D spatial dimensions for each of the N particles;
+    dim_grdpoint = n_part * dim_space
+    # each component of a grid point takes dim_bas discrete values
+    # e.g. x1 \in {x_1,...,x_dim_bas} where x_1 is an eigenvalue of the position matrix
+    dim_h = dim_bas**dim_grdpoint
+
+    # initialize empty matrices (might have to be "sparsed" for larger dim. problems)
+    mpotential = np.zeros((dim_h, dim_h))
+    mkinetic = np.zeros((dim_h, dim_h))
+    mhamilton = np.zeros((dim_h, dim_h))
+
+    # obtain eigensystem of the position operator in the basis of choice
+    # eigenvalues '=' grid points ; transformation matrix necessary for Ekin
+    # STATUS: one basis for all coordinates (future: xy->HO, z->SINE)
+    coordOP_evSYS = calc_grid(dim_bas, spec_bas)
+
+    # calculate potential and kinetic-energy matrices for a chosen basis
+    # STATUS: for each additional basis, the matrices need to be specified in this function!
+    mkinetic = calc_Ekin(dim_bas, n_part, spec_bas, coordOP_evSYS)
+    # STATUS: the potential matrix is assumed to be diagonal (future: OPE+B => potential has non-zero offdiagonal elements)
+    mpotential = np.diag(
+        calc_potential(n_part, dim_space, spec_pot, coordOP_evSYS))
+
+    mhamilton = (mkinetic + mpotential)
+    return mhamilton

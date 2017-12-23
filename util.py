@@ -8,4 +8,5 @@ def benchmark(name):
     yield
     end = time.time()
 
-    print('{} took {:.2f} ms\n'.format(name, (end - start) * 1000.0))
+    print('>\n{} took {:.2f} ms\n>--------------------------------------->'.
+          format(name, (end - start) * 1000.0))
