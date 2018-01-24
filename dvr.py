@@ -161,6 +161,7 @@ def calc_potential(n_part, space_dims, pot_specs, eigensys_coord):
 
     if pot_specs[0] == 'HO':
         for coord in grd1D:
+            #                       MASS / HBARC   OMEGA
             mpotential[idx] = 0.5 * pot_specs[2] * pot_specs[3]**2 * sum([(
                 i - pot_specs[1])**2 for i in coord])
 
@@ -173,7 +174,12 @@ def calc_potential(n_part, space_dims, pot_specs, eigensys_coord):
             )
             exit()
         for coord in grd1D:
+<<<<<<< Updated upstream
             mpotential[idx] = (pot_specs[1] * sum(
+=======
+            #                        OMEGA**2
+            mpotential[idx] = (0.5 * pot_specs[1]**1 * sum(
+>>>>>>> Stashed changes
                 np.array([[[(coord[i + x] - coord[j + x])**2
                             for i in range(n_part)] for j in range(n_part)]
                           for x in range(space_dims)]).flatten()))
