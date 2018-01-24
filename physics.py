@@ -11,7 +11,6 @@ JOULE_PER_EV = 1.0 / 1.602176565e-19
 #       h*c/(2*pi) in MeV*fm
 HBARC = PLANCS_CONSTANT * C / (2 * np.pi) * JOULE_PER_EV * 10e12 * 10e-6
 
-
 def eigenvalues_harmonic_osci(omega, nmax, dim):
     """ Returns energy eigenvalues of the dim-dimensional quantum-mechanical harmonic oscillator
 		H = -hbarc^2/(2m)d^2/dx^2 + 1/2*m*omega^2 * x^2

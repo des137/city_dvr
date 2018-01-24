@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import eigsh
 
@@ -17,24 +18,25 @@ BETA = 4.0
 POT_GAUSS = ['GAUSS', BETA, LEC]
 
 # isotropic harmonic oscillator
-OMEGA = -1.
+OMEGA = 1.
 X_EQ = 0.
 POT_HO = ['HO', X_EQ, MASS / HBARC, OMEGA]
-POT_HO_INTER = ['HOINT', OMEGA]
+POT_HO_INTER = ['HOINT', 100*OMEGA]
 
 # lattice set-up
 PARTNBR = 2  # number of particles
-SPACEDIMS = 3  # spatial coordinate dimensions (e.g. Cartesian x,y,z)
-BASIS_DIM = 5  # (dim of variational basis) = (nbr of grid points) = (nbr of segments - 1)
+SPACEDIMS = 1  # spatial coordinate dimensions (e.g. Cartesian x,y,z)
+BASIS_DIM = 10  # (dim of variational basis) = (nbr of grid points) = (nbr of segments - 1)
 
 # specify the variational basis
 BOX_SIZE = 8  #BASIS_DIM + 0  # physical length of one spatial dimension (in Fermi); relevant for specific bases, only!
 BOX_ORIGIN = -BOX_SIZE / 2.
 BASIS_SINE = ['SINE', [SPACEDIMS, BOX_SIZE, BOX_ORIGIN, MASS / HBARC]]
+BASIS_SINC = ['SINC', [SPACEDIMS, BOX_SIZE, BOX_ORIGIN, MASS / HBARC]]
 BASIS_HO = ['HO', [SPACEDIMS, X_EQ, (MASS / HBARC), OMEGA]]
 # each axis is devided into = (number of grid points) - 1
 
-N_EIGENV = 14  # number of eigenvalues to be calculated with <eigsh>
+N_EIGENV = 02  # number of eigenvalues to be calculated with <eigsh>
 
 
 def calc_mhamilton(n_part, dim_space, dim_bas, spec_bas, spec_pot):
@@ -84,7 +86,7 @@ def calc_mhamilton(n_part, dim_space, dim_bas, spec_bas, spec_pot):
 
 ham = []
 with benchmark("Matrix filling"):
-    ham = calc_mhamilton(PARTNBR, SPACEDIMS, BASIS_DIM, BASIS_SINE,
+    ham = calc_mhamilton(PARTNBR, SPACEDIMS, BASIS_DIM, BASIS_SINC,
                          POT_HO_INTER)
 
 sparsimonius = True  # False '=' full matrix diagonalization; True '=' approximate determination of the lowest <N_EIGEN> eigenvalues
@@ -100,7 +102,7 @@ if sparsimonius:
              (BASIS_DIM**
               (SPACEDIMS * PARTNBR))**2, 100. * coo_matrix(ham).nnz / float(
                   (BASIS_DIM**(SPACEDIMS * PARTNBR))**2)))
-        print('DVR-sparse:\n', evals_small[:min(N_EIGENV, np.shape(ham)[1])])
+#        print('DVR-sparse:\n', evals_small[:min(N_EIGENV, np.shape(ham)[1])])
 else:
     with benchmark("Diagonalization -- full matrix structure (DVR)"):
         # calculate the eigenvalues of the sum of the Hamilton matrix (Hermitian)
@@ -110,9 +112,15 @@ else:
                (BASIS_DIM**(SPACEDIMS * PARTNBR))**2))
         print('DVR-full:\n', np.real(EV)[:N_EIGENV])
 
-exit()
 with benchmark("Calculate %d-particle %d-dimensional HO ME analytically" %
                (PARTNBR, SPACEDIMS)):
     nmax = 20
     print(eigenvalues_harmonic_osci(POT_HO[3], nmax,
                                     PARTNBR * SPACEDIMS)[:N_EIGENV])
+
+#plt.plot(evals_small[:min(N_EIGENV, np.shape(ham)[1])])
+plt.plot(eigenvalues_harmonic_osci(POT_HO[3], N_EIGENV,
+                                    PARTNBR * SPACEDIMS)[:N_EIGENV])
+plt.show()
+
+exit()    

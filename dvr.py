@@ -49,6 +49,16 @@ def calc_grid(dimension, basis_specs):
 
     return np.linalg.eigh(pos_op_mat)
 
+    if basis_specs[0] == 'SINC':
+        pos_op_mat[0, 1] = 0.5
+        pos_op_mat[dimension - 1, dimension - 2] = 0.5
+        for j in range(1, dimension - 1):
+            pos_op_mat[j, j + 1] = 0.5
+            pos_op_mat[j, j - 1] = 0.5
+        evsys = np.linalg.eigh(pos_op_mat)
+        evs = basis_specs[1][2] + basis_specs[1][1] / np.pi * np.arccos(
+            evsys[0])
+        return [np.sort(evs), evsys[1]]
 
 def calc_Ekin(dim_basis, n_part, basis_specs, eigensys_coord):
     """Calculates the kinetic energy matrix.
@@ -124,6 +134,41 @@ def calc_Ekin(dim_basis, n_part, basis_specs, eigensys_coord):
             mEkin = kronsum(mEkin, tmp)
     return mEkin
 
+    if basis_specs[0] == 'SINC':
+        # infer the constant grid spacing (dx) and the box length (L) from
+        # the eigenvalues; as the eigenvalues do not include the edges, 2*dx
+        # has to be added;
+
+        if sum(
+                np.isclose(
+                    np.diff(eigensys_coord[0]),
+                    np.roll(np.diff(eigensys_coord[0]),
+                            1))) != len(eigensys_coord[0]) - 1:
+            print(
+                'Grid points of the SINE basis are not equally spaced! Exiting...'
+            )
+            exit()
+
+        dx = abs(eigensys_coord[0][1] - eigensys_coord[0][0])
+        L = abs(eigensys_coord[0][-1] - eigensys_coord[0][0]) + 2 * dx
+        for i in range(dim_basis):
+            for ip in range(dim_basis):
+                i_idx = i + 1
+                ip_idx = ip + 1  # to array indices (i,ip) add 1
+                if i == ip:
+                    tmp[i, i] = (((2. * (dim_basis + 1)**2 + 1) / 3.) -
+                                 np.sin(i_idx * (np.pi /
+                                                 (dim_basis + 1)))**(-2))
+                else:
+                    tmp[i, ip] = ((-1)**(i_idx - ip_idx)) * (
+                        np.sin(np.pi / (2. * (dim_basis + 1)) *
+                               (i_idx - ip_idx))**
+                        (-2) - np.sin(np.pi / (2. * (dim_basis + 1)) *
+                                      (i_idx + ip_idx))**(-2))
+                tmp[i, ip] *= np.pi**2 / (2. * L**2)
+
+        tmp = tmp / (2. * basis_specs[1][3])
+        # this factor has to be verified!
 
 def calc_potential(n_part, space_dims, pot_specs, eigensys_coord):
     """Calculates the potential energy matrix:
