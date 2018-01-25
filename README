@@ -2,3 +2,9 @@ Example
 A line is modified.
 Commit directly without staging.
 -m command: Write the changes directly.
+
+
+git status
+git add
+git commit -a
+git commit -a -m 'Comment'
