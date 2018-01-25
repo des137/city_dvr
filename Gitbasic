@@ -8,3 +8,7 @@ git status
 git add
 git commit -a
 git commit -a -m 'Comment'
+
+
+
+git log --pretty=format:"%h - %an, %ar : %s"
