@@ -1,14 +1,6 @@
-Example
-A line is modified.
-Commit directly without staging.
--m command: Write the changes directly.
-
-
 git status
 git add
-git commit -a (Skipping staging area)
-git commit -a -m 'Comment'
-
-
+git commit -a                                      (Skipping staging area)
+git commit -a -m 'Comment directly'                (Skipping editir changes)
 
 git log --pretty=format:"%h - %an, %ar : %s"
