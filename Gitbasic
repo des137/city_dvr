@@ -6,7 +6,7 @@ Commit directly without staging.
 
 git status
 git add
-git commit -a
+git commit -a (Skipping staging area)
 git commit -a -m 'Comment'
 
 
