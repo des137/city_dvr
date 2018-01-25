@@ -1,6 +1,19 @@
-git status
-git add
-git commit -a                                      (Skipping staging area)
-git commit -a -m 'Comment directly'                (Skipping editir changes)
+Find all the git files:
+  find ~/* -name ".git"
 
-git log --pretty=format:"%h - %an, %ar : %s"
+Changes to the git:
+  git status
+  git add
+  git commit /-a                             (Skipping staging area)
+  git commit -a -m 'Comment directly'        (Skipping editir changes)
+
+Log of the activities:
+  git log --pretty=format:"%h - %an, %ar : %s"
+
+Branch information:
+  git branch /-r/-a
+  git checkout <branchname>                  (Change the branch)
+
+Remote repositories:
+  git remote /-v
+  git remote add <name> <url>
