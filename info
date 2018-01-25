@@ -1,0 +1,11 @@
+git init
+(git clone link)
+(Modifivation)
+git status
+git add filename 
+(git add .) if change everything
+git status(optional)
+git commit (Comment)
+(git branch)
+git push -u origin branchname	
+git push
